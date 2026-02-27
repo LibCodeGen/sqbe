@@ -1,0 +1,11 @@
+{
+    "lldb.launch.expressions": "python",
+    "python.defaultInterpreterPath": "/usr/bin/python",
+    "python-envs.pythonProjects": [
+        {
+            "path": ".vscode",
+            "envManager": "ms-python.python:venv",
+            "packageManager": "ms-python.python:pip"
+        }
+    ]
+}
