@@ -1,13 +1,14 @@
 import os
-
-ROOT_DIR = os.path.normpath(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
-
 import glob
 import platform
 import re
 import string
 import subprocess
 import sys
+
+ROOT_DIR = os.path.normpath(os.path.join(
+    os.path.abspath(os.path.dirname(__file__)), ".."
+    ))
 
 SQBE_C_FILES = [
     "all.h",
@@ -64,15 +65,20 @@ def namespace_static_funcs(ns, file, contents):
                 and not lines[i + 1].startswith("static")
                 and lines[i + 1][0] in string.ascii_lowercase):
             fn = lines[i + 1].partition("(")[0]
-            if fn == "amd64_memargs" or fn == "arm64_memargs" or fn == "rv64_memargs":
+            if (fn == "amd64_memargs"
+               or fn == "arm64_memargs"
+               or fn == "rv64_memargs"):
                 continue
             function_names.append(fn)
     for fn in function_names:
         contents = re.sub(r"\b" + fn + "\\(", ns + fn + "(", contents)
-        contents = re.sub(r"qsort\((.*) " + fn + r"\);", r"qsort(\1 " + ns + fn + ");", contents)
-        contents = re.sub(r"loopiter\((.*) " + fn + r"\);", r"loopiter(\1 " + ns + fn + ");",
+        contents = re.sub(r"qsort\((.*) " + fn + r"\);",
+                          r"qsort(\1 " + ns + fn + ");", contents)
+        contents = re.sub(r"loopiter\((.*) " +
+                          fn + r"\);", r"loopiter(\1 " + ns + fn + ");",
                           contents)
-        contents = contents.replace("desc[0] = (void *)" + fn, "desc[0] = (void *)" + ns + fn)
+        contents = contents.replace("desc[0] = (void *)" + fn,
+                                    "desc[0] = (void *)" + ns + fn)
 
     return contents
 
@@ -115,9 +121,11 @@ def abi_renames(ns, contents):
 
 
 def arm64_reg_rename(contents):
-    regs = (["R%d" % i for i in range(16)] + ["IP0", "IP1"] + ["R%d" % i for i in range(18, 29)] +
+    regs = (["R%d" % i for i in range(16)] + ["IP0", "IP1"] +
+            ["R%d" % i for i in range(18, 29)] +
             ["V%d" % i
-             for i in range(31)] + ["FP", "LR", "SP", "NFPR", "NGPR", "NGPS", "NFPS", "NCLR"])
+             for i in range(31)] +
+            ["FP", "LR", "SP", "NFPR", "NGPR", "NGPS", "NFPS", "NCLR"])
     for i in regs:
         contents = re.sub(r"\b%s\b" % i, "QBE_ARM64_%s" % i, contents)
     return contents
@@ -200,7 +208,9 @@ def make_instr_prototypes(ops_h_contents):
     def is_no_return(op):
         # Also blit and call, but those are handled specially and aren't in the
         # public section of ops.h.
-        return op == "vastart" or op.startswith("store") or op.startswith("dbgloc")
+        return (op == "vastart" or
+                op.startswith("store") or
+                op.startswith("dbgloc"))
 
     def is_single_arg_op(type_string_arg_1):
         return type_string_arg_1.count("x") + type_string_arg_1.count("e") == 4
@@ -238,63 +248,71 @@ def make_instr_prototypes(ops_h_contents):
             # (because there's only one possibility).
             is_single_size_class, size_class0 = only_single_size_class(arg0)
             if is_single_size_class:
-                proto = "SqRef sq_i_%s(SqRef arg0 /*%s*/)" % (op, "".join(arg0))
-                proto_i = "void sq_i_%s_into(SqRef into, SqRef arg0 /*%s*/)" % (
-                    op,
-                    "".join(arg0),
-                )
-                defns += (proto + " { return _normal_one_op_instr(O%s, %s, arg0); }\n" %
-                          (op, size_class0))
+                proto = ("SqRef sq_i_%s(SqRef arg0 /*%s*/)" %
+                         (op, "".join(arg0)))
+                proto_i = ("void sq_i_%s_into(SqRef into, SqRef arg0 /*%s*/)" %
+                           (
+                            op,
+                            "".join(arg0),
+                           ))
+                defns += (proto +
+                          " { return _normal_one_op_instr(O%s, %s, arg0); }\n"
+                          % (op, size_class0))
                 defns += (
                     proto_i +
-                    " { _normal_one_op_instr_into(O%s, _sqref_to_internal_ref(into), %s, arg0); }\n"
+                    (" { _normal_one_op_instr_into(O%s," +
+                     " _sqref_to_internal_ref(into), %s, arg0); }\n")
                     % (op, size_class0))
 
                 noop_defns += "#define sq_i_%s(a0) (SqRef){0}\n" % op
                 noop_defns += "#define sq_i_%s_into(into, a0)\n" % op
             else:
-                proto = "SqRef sq_i_%s(SqType size_class, SqRef arg0 /*%s*/)" % (
-                    op,
-                    "".join(arg0),
-                )
-                proto_i = ("void sq_i_%s_into(SqRef into, SqType size_class, SqRef arg0 /*%s*/)" % (
-                    op,
-                    "".join(arg0),
-                ))
-                defns += (proto + " { return _normal_one_op_instr(O%s, size_class, arg0); }\n" %
-                          (op))
-                defns += (
-                    proto_i +
-                    " { _normal_one_op_instr_into(O%s, _sqref_to_internal_ref(into), size_class, arg0); }\n"
-                    % (op))
+                proto = ("SqRef sq_i_%s(SqType size_class, SqRef arg0 /*%s*/)"
+                         % (op, "".join(arg0),))
+                proto_i = ((
+                    "void sq_i_%s_into(SqRef into, SqType size_class," +
+                    " SqRef arg0 /*%s*/)")
+                    % (op, "".join(arg0),))
+                defns += (proto + (" { return _normal_one_op_instr(O%s, " +
+                          "size_class, arg0); }\n") % (op))
+                defns += (proto_i +
+                          (" { _normal_one_op_instr_into(O%s, " +
+                           "_sqref_to_internal_ref(into), " +
+                           "size_class, arg0); }\n") % (op))
 
                 noop_defns += "#define sq_i_%s(s, a0) (SqRef){0}\n" % op
                 noop_defns += "#define sq_i_%s_into(into, s, a0)\n" % op
         else:
             if is_no_return(op):
-                proto = "void sq_i_%s(SqRef arg0 /*%s*/, SqRef arg1 /*%s*/)" % (
-                    op,
-                    "".join(arg0),
-                    "".join(arg1),
-                )
+                proto = ("void sq_i_%s(SqRef arg0 /*%s*/, SqRef arg1 /*%s*/)" %
+                         (
+                            op,
+                            "".join(arg0),
+                            "".join(arg1),
+                         ))
                 proto_i = None
-                defns += (proto + " { _normal_two_op_void_instr(O%s, arg0, arg1); }\n" % op)
+                defns += (proto +
+                          " { _normal_two_op_void_instr(O%s, arg0, arg1); }\n"
+                          % op)
 
                 noop_defns += "#define sq_i_%s(a0, a1)\n" % op
             else:
                 # None of these have trivial size classes, only the single op
                 # ones have that case.
-                proto = ("SqRef sq_i_%s(SqType size_class, SqRef arg0 /*%s*/, SqRef arg1 /*%s*/)" %
+                proto = (("SqRef sq_i_%s(SqType size_class," +
+                         " SqRef arg0 /*%s*/, SqRef arg1 /*%s*/)") %
                          (op, "".join(arg0), "".join(arg1)))
-                proto_i = (
-                    "void sq_i_%s_into(SqRef into, SqType size_class, SqRef arg0 /*%s*/, SqRef arg1 /*%s*/)"
+                proto_i = ((
+                    "void sq_i_%s_into(SqRef into, SqType size_class," +
+                    " SqRef arg0 /*%s*/, SqRef arg1 /*%s*/)")
                     % (op, "".join(arg0), "".join(arg1)))
                 defns += (proto +
-                          " { return _normal_two_op_instr(O%s, size_class, arg0, arg1); }\n" % op)
-                defns += (
-                    proto_i +
-                    " { _normal_two_op_instr_into(O%s, _sqref_to_internal_ref(into), size_class, arg0, arg1); }\n"
-                    % op)
+                          " { return _normal_two_op_instr(" +
+                          "O%s, size_class, arg0, arg1); }\n" % op)
+                defns += ((
+                    proto_i + " { _normal_two_op_instr_into(O%s, " +
+                    "_sqref_to_internal_ref(into), size_class, arg0, arg1);" +
+                    " }\n") % op)
 
                 noop_defns += "#define sq_i_%s(s, a0, a1) (SqRef){0}\n" % op
                 noop_defns += "#define sq_i_%s_into(into, s, a0, a1)\n" % op
@@ -348,7 +366,8 @@ def remove_function(contents, func_ret_type, func_name):
 
 
 def remove_data(contents, look_for):
-    return "\n".join([x for x in contents.splitlines() if not x.startswith(look_for)])
+    return "\n".join([x for x in contents.splitlines()
+                     if not x.startswith(look_for)])
 
 
 def remove_lines_range(contents, start, end):
@@ -381,7 +400,8 @@ def fix_missing_static(contents, funcname):
 def staticize_main_data(contents):
     result = []
     for line in contents.splitlines():
-        if line.startswith("extern Target T") or line.startswith("GlobalContext global_context"):
+        if (line.startswith("extern Target T")
+           or line.startswith("GlobalContext global_context")):
             line = "static " + line.replace("extern ", "")
         result.append(line)
     return "\n".join(result)
@@ -410,11 +430,18 @@ def staticize_prototypes(contents):
     for line in contents.splitlines():
         if line.startswith("void parse(FILE"):
             continue
-        if (line.startswith("void ") or line.startswith("uint32_t ") or line.startswith("char *")
-                or line.startswith("int ") or line.startswith("uint ") or line.startswith("bits ")
-                or line.startswith("Ins *") or line.startswith("Ref ") or
-                line.startswith("MachoCtx*") or line.startswith("Blk *") or
-                line.startswith("JitCtx*") or line.startswith("void* ")) and line.endswith(");"):
+        if (line.startswith("void ")
+           or line.startswith("uint32_t ")
+           or line.startswith("char *")
+           or line.startswith("int ")
+           or line.startswith("uint ")
+           or line.startswith("bits ")
+           or line.startswith("Ins *")
+           or line.startswith("Ref ")
+           or line.startswith("MachoCtx*")
+           or line.startswith("Blk *")
+           or line.startswith("JitCtx*")
+           or line.startswith("void* ")) and line.endswith(");"):
             line = "static " + line
         elif (line.startswith("extern Target T")
               or line.startswith("extern GlobalContext global_context")
@@ -516,11 +543,14 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
                 contents = staticize_parse_data(contents)
 
             if file == "amd64/targ.c":
-                contents = contents.replace("Amd64Op amd64_op", "static Amd64Op amd64_op")
+                contents = contents.replace(
+                    "Amd64Op amd64_op", "static Amd64Op amd64_op")
 
             if file == "amd64/sysv.c":
-                contents = contents.replace("int amd64_sysv_rsave", "static int amd64_sysv_rsave")
-                contents = contents.replace("int amd64_sysv_rclob", "static int amd64_sysv_rclob")
+                contents = contents.replace(
+                    "int amd64_sysv_rsave", "static int amd64_sysv_rsave")
+                contents = contents.replace(
+                    "int amd64_sysv_rclob", "static int amd64_sysv_rclob")
 
             if file == "amd64/winabi.c":
                 contents = contents.replace("int amd64_winabi_rsave",
@@ -529,13 +559,18 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
                                             "static int amd64_winabi_rclob")
 
             if file == "arm64/targ.c":
-                contents = contents.replace("int arm64_rsave", "static int arm64_rsave")
-                contents = contents.replace("int arm64_rclob", "static int arm64_rclob")
+                contents = contents.replace(
+                    "int arm64_rsave", "static int arm64_rsave")
+                contents = contents.replace(
+                    "int arm64_rclob", "static int arm64_rclob")
 
             if file == "rv64/targ.c":
-                contents = contents.replace("Rv64Op rv64_op", "static Rv64Op rv64_op")
-                contents = contents.replace("int rv64_rsave", "static int rv64_rsave")
-                contents = contents.replace("int rv64_rclob", "static int rv64_rclob")
+                contents = contents.replace(
+                    "Rv64Op rv64_op", "static Rv64Op rv64_op")
+                contents = contents.replace(
+                    "int rv64_rsave", "static int rv64_rsave")
+                contents = contents.replace(
+                    "int rv64_rclob", "static int rv64_rclob")
 
             if file.endswith("emitmacho.h"):
                 contents = staticize_prototypes(contents)
@@ -549,7 +584,8 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
             if file.endswith("all.h"):
                 contents = staticize_prototypes(contents)
                 contents = contents.replace(
-                    "static void reinit_global_context(GlobalContext* ctx);\n", "")
+                    "static void reinit_global_context(GlobalContext* ctx);\n",
+                    "")
 
                 # MSVC annoyingly doesn't handle static forward declarations
                 # without a size properly and just dies at the point of
@@ -586,47 +622,80 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
                 contents = abi_renames(ns, contents)
 
             if file == "main.c":
-                contents = remove_function(contents, "int", "main")
-                contents = remove_lines_range(contents, "static Target *tlist", "};")
-                contents = remove_function(contents, "void", "reinit_global_context")
+                contents = remove_function(
+                    contents, "int", "main")
+                contents = remove_lines_range(
+                    contents, "static Target *tlist", "};")
+                contents = remove_function(
+                    contents, "void", "reinit_global_context")
 
             if file == "arm64/apple_shared.c":
                 contents = contents.replace("uint8_t arm64cond",
                                             "static uint8_t arm64cond")
 
             if file == "util.c":
-                contents = remove_function(contents, "void *", "emalloc")
-                contents = remove_function(contents, "void *", "alloc")
-                contents = remove_function(contents, "void", "freeall")
-                contents = remove_function(contents, "void", "qbe_free")
-                contents = remove_function(contents, "void", "die_")
+                contents = remove_function(
+                    contents, "void *", "emalloc")
+                contents = remove_function(
+                    contents, "void *", "alloc")
+                contents = remove_function(
+                    contents, "void", "freeall")
+                contents = remove_function(
+                    contents, "void", "qbe_free")
+                contents = remove_function(
+                    contents, "void", "die_")
 
             if file == "parse.c":
-                contents = remove_function(contents, "void", "parse")
-                contents = remove_function(contents, "static void", "qbe_parse_parsedatref")
-                contents = remove_function(contents, "static void", "qbe_parse_parsedat")
-                contents = remove_function(contents, "static Ref", "qbe_parse_tmpref")
-                contents = remove_function(contents, "static void", "qbe_parse_parsetyp")
-                contents = remove_function(contents, "static void", "qbe_parse_parsedatstr")
-                contents = remove_function(contents, "static void", "qbe_parse_parsefields")
-                contents = remove_function(contents, "static void", "qbe_parse_expect")
-                contents = remove_function(contents, "static Blk *", "qbe_parse_findblk")
-                contents = remove_function(contents, "static PState", "qbe_parse_parseline")
-                contents = remove_function(contents, "static int", "qbe_parse_parselnk")
-                contents = remove_function(contents, "static int", "qbe_parse_nextnl")
-                contents = remove_function(contents, "static int", "qbe_parse_next")
-                contents = remove_function(contents, "static int", "qbe_parse_peek")
-                contents = remove_function(contents, "static int", "qbe_parse_lex")
-                contents = remove_function(contents, "static int64_t", "qbe_parse_getint")
-                contents = remove_function(contents, "static int", "qbe_parse_parserefl")
-                contents = remove_function(contents, "void", "err_")
-                contents = remove_function(contents, "static int", "qbe_parse_findtyp")
-                contents = remove_function(contents, "static int", "qbe_parse_parsecls")
-                contents = remove_function(contents, "static Ref", "qbe_parse_parseref")
-                contents = remove_function(contents, "static Fn *", "qbe_parse_parsefn")
-                contents = remove_function(contents, "static void", "qbe_parse_lexinit")
-                contents = remove_lines_range(contents, "static struct {", "} tokval;")
-                contents = remove_lines_range(contents, "static char *kwmap", "};")
+                contents = remove_function(
+                    contents, "void", "parse")
+                contents = remove_function(
+                    contents, "static void", "qbe_parse_parsedatref")
+                contents = remove_function(
+                    contents, "static void", "qbe_parse_parsedat")
+                contents = remove_function(
+                    contents, "static Ref", "qbe_parse_tmpref")
+                contents = remove_function(
+                    contents, "static void", "qbe_parse_parsetyp")
+                contents = remove_function(
+                    contents, "static void", "qbe_parse_parsedatstr")
+                contents = remove_function(
+                    contents, "static void", "qbe_parse_parsefields")
+                contents = remove_function(
+                    contents, "static void", "qbe_parse_expect")
+                contents = remove_function(
+                    contents, "static Blk *", "qbe_parse_findblk")
+                contents = remove_function(
+                    contents, "static PState", "qbe_parse_parseline")
+                contents = remove_function(
+                    contents, "static int", "qbe_parse_parselnk")
+                contents = remove_function(
+                    contents, "static int", "qbe_parse_nextnl")
+                contents = remove_function(
+                    contents, "static int", "qbe_parse_next")
+                contents = remove_function(
+                    contents, "static int", "qbe_parse_peek")
+                contents = remove_function(
+                    contents, "static int", "qbe_parse_lex")
+                contents = remove_function(
+                    contents, "static int64_t", "qbe_parse_getint")
+                contents = remove_function(
+                    contents, "static int", "qbe_parse_parserefl")
+                contents = remove_function(
+                    contents, "void", "err_")
+                contents = remove_function(
+                    contents, "static int", "qbe_parse_findtyp")
+                contents = remove_function(
+                    contents, "static int", "qbe_parse_parsecls")
+                contents = remove_function(
+                    contents, "static Ref", "qbe_parse_parseref")
+                contents = remove_function(
+                    contents, "static Fn *", "qbe_parse_parsefn")
+                contents = remove_function(
+                    contents, "static void", "qbe_parse_lexinit")
+                contents = remove_lines_range(
+                    contents, "static struct {", "} tokval;")
+                contents = remove_lines_range(
+                    contents, "static char *kwmap", "};")
                 contents = remove_lines_range(contents, "enum Token {", "};")
                 contents = remove_data(contents, "\tNPred =")
                 contents = remove_data(contents, "\tTMask =")
@@ -670,8 +739,8 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
                 if file == "main.c" and line.startswith("#include <dlfcn.h>"):
                     out.write("/* skipping dlfcn.h */\n")
                     continue
-                if line.strip().startswith('#include "ops.h"') or line.strip().startswith(
-                        '#include "../ops.h"'):
+                if (line.strip().startswith('#include "ops.h"')
+                   or line.strip().startswith('#include "../ops.h"')):
                     out.write("/* " + 60 * "-" + "including ops.h */\n")
                     out.write(ops_h_contents)
                     out.write("/* " + 60 * "-" + "end of ops.h */\n")
@@ -713,7 +782,8 @@ def write_noop_impls(out, qbe_root, h_contents, instrs):
     out.write("#define sq_shutdown() true\n")
     out.write("\n")
     out.write(
-        "#define sq_linkage_create(alignment, exported, tls, common, section_name, section_flags) (SqLinkage){0}\n"
+        "#define sq_linkage_create(alignment, exported, tls," +
+        " common, section_name, section_flags) (SqLinkage){0}\n"
     )
     out.write("\n")
     out.write("#define sq_type_struct_start(name, align)\n")
@@ -734,7 +804,8 @@ def write_noop_impls(out, qbe_root, h_contents, instrs):
     out.write("#define sq_data_ref(ref, offset)\n")
     out.write("#define sq_data_end(void) (SqSymbol){0}\n")
     out.write("\n")
-    out.write("#define sq_func_start(linkage, return_type, name) (SqItemCtx){0}\n")
+    out.write("#define sq_func_start(linkage, return_type, name)" +
+              " (SqItemCtx){0}\n")
     out.write("#define sq_func_end() (SqSymbol){0}\n")
     out.write("\n")
     out.write("#define sq_func_get_entry_block() (SqBlock){0}\n")
@@ -762,7 +833,8 @@ def write_noop_impls(out, qbe_root, h_contents, instrs):
     out.write("#define sq_i_jmp(block);\n")
     out.write("#define sq_i_jnz(cond, if_true, if_false)\n")
     out.write("\n")
-    out.write("#define sq_i_phi(size_class, block0, val0, block1, val1) (SqRef){0}\n")
+    out.write("#define sq_i_phi(size_class, block0, val0, block1, val1) " +
+              "(SqRef){0}\n")
     out.write("\n")
     out.write("#define sq_i_blit(from, to, num_bytes)\n")
     out.write("\n")
@@ -775,7 +847,8 @@ def write_noop_impls(out, qbe_root, h_contents, instrs):
     out.write("#define sq_i_call4 sq_i_call_noop\n")
     out.write("#define sq_i_call5 sq_i_call_noop\n")
     out.write("#define sq_i_call6 sq_i_call_noop\n")
-    out.write("static inline SqRef sq_i_call_noop(SqType result, ...) { return (SqRef){0}; }\n")
+    out.write("static inline SqRef sq_i_call_noop(SqType result, ...)" +
+              " { return (SqRef){0}; }\n")
     out.write("\n")
     out.write("#endif // SQBE_NOOP\n")
     out.write("\n")
@@ -792,7 +865,9 @@ def main():
         subprocess.check_call(["git", "fetch", "origin"], cwd=qbe_root)
     subprocess.check_call(["git", "checkout", "origin/master"], cwd=qbe_root)
     for patch in sorted(glob.glob("patches/*.patch")):
-        subprocess.check_call(["git", "am", os.path.join("..", patch)], cwd=qbe_root)
+        subprocess.check_call(
+            ["git", "am", os.path.join("..", patch)],
+            cwd=qbe_root)
 
     with open(os.path.join(qbe_root, "ops.h"), "r") as f:
         ops_h_contents = f.read()
@@ -802,7 +877,8 @@ def main():
     with open("sqbe.in.h", "r") as header_in:
         h_contents = header_in.read()
 
-    h_contents = h_contents.replace("%%%INSTRUCTION_DECLARATIONS%%%\n", instrs.decls)
+    h_contents = h_contents.replace(
+        "%%%INSTRUCTION_DECLARATIONS%%%\n", instrs.decls)
 
     write_final_header(qbe_root, ops_h_contents, h_contents, instrs)
 
@@ -832,7 +908,8 @@ def main():
         print("win32 build ok")
     elif sys.platform == "darwin":
         subprocess.check_call(
-            ["clang", "-Wall", "-Wextra", "-Werror", "-pedantic", "-c", "in_c_test.c"])
+            ["clang", "-Wall", "-Wextra", "-Werror",
+             "-pedantic", "-c", "in_c_test.c"])
         subprocess.check_call([
             "clang",
             "-O3",
@@ -848,7 +925,8 @@ def main():
     elif sys.platform == "linux":
         # Check we can build with gcc and clang
         subprocess.check_call(
-            ["gcc", "-Wall", "-Wextra", "-Werror", "-pedantic", "-c", "in_c_test.c"])
+            ["gcc", "-Wall", "-Wextra", "-Werror",
+             "-pedantic", "-c", "in_c_test.c"])
         subprocess.check_call([
             "gcc",
             "-O2",
@@ -860,7 +938,8 @@ def main():
             "in_c_test.c",
         ])
         subprocess.check_call(
-            ["clang", "-Wall", "-Wextra", "-Werror", "-pedantic", "-c", "in_c_test.c"])
+            ["clang", "-Wall", "-Wextra", "-Werror",
+             "-pedantic", "-c", "in_c_test.c"])
         subprocess.check_call([
             "clang",
             "-O3",
@@ -886,26 +965,30 @@ def main():
         ])
         # And that the the only exported symbols from sqbe are those we expect
         # (prefixed by `sq_`).
-        symsp = subprocess.run(["readelf", "-s", "sqbe.o"], capture_output=True)
+        symsp = subprocess.run(
+            ["readelf", "-s", "sqbe.o"], capture_output=True)
         os.remove("in_c_test.o")
         os.remove("sqbe.o")
         os.remove("in_cpp")
         syms = str(symsp.stdout, encoding="utf-8").splitlines()
-        syms = [l for l in syms if "GLOBAL " in l]
-        syms = [l for l in syms if "UND " not in l]
+        syms = [this_line for this_line in syms if "GLOBAL " in this_line]
+        syms = [this_line for this_line in syms if "UND " not in this_line]
         for s in syms:
             symname = s.split()[-1]
             if not symname.startswith("sq_"):
                 print("Unexpected symbol:", symname)
                 sys.exit(1)
-        print("These are the global exported symbols from sqbe.o. They look ok, but")
+        print("These are the global exported symbols from sqbe.o." +
+              " They look ok, but")
         print("confirm that they match the header part of sqbe.h (only).")
         print("-" * 80)
         for s in syms:
             print(s)
         print("-" * 80)
 
-    subprocess.run([sys.executable, os.path.join(ROOT_DIR, "test", "run_tests.py")], check=True)
+    subprocess.run(
+        [sys.executable, os.path.join(ROOT_DIR, "test", "run_tests.py")],
+        check=True)
 
     print("sqbe.h ready for distribution")
 

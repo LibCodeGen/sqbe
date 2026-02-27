@@ -5,3 +5,4 @@ test/*.obj
 test/gen.exe
 test/tmp.exe
 test/tmp.s
+*.obj
