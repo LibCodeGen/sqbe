@@ -517,6 +517,171 @@ def part3(out, file, contents, ops_h_contents):
     return line
 
 
+def main_body(qbe_root, file):
+    contents, ns = part1(qbe_root, file)
+    
+    if file == "arm64/all.h" or file.startswith("arm64/"):
+        contents = arm64_reg_rename(contents)
+    
+    if file == "amd64/all.h" or file.startswith("amd64/"):
+        contents = amd64_reg_rename(contents)
+    
+    if file == "rv64/all.h" or file.startswith("rv64/"):
+        contents = rv64_reg_rename(contents)
+    
+    if file.endswith("/emit.c"):
+        contents = emit_renames(ns, contents)
+    
+    if file == "emit.c":  # This should be changed upstream.
+        contents = fix_missing_static(contents, "emitlnk")
+    
+    if file == "cfg.c":  # This should be changed upstream.
+        contents = fix_missing_static(contents, "multloop")
+    
+    if file == "gvn.c":  # This should be changed upstream.
+        contents = fix_missing_static(contents, "cmpeqz")
+    
+    if file == "main.c":
+        contents = staticize_main_data(contents)
+    
+    if file == "parse.c":
+        contents = staticize_parse_data(contents)
+    
+    if file == "amd64/targ.c":
+        contents = contents.replace(
+            "Amd64Op amd64_op", "static Amd64Op amd64_op")
+    
+    if file == "amd64/sysv.c":
+        contents = contents.replace(
+            "int amd64_sysv_rsave", "static int amd64_sysv_rsave")
+        contents = contents.replace(
+            "int amd64_sysv_rclob", "static int amd64_sysv_rclob")
+    
+    if file == "amd64/winabi.c":
+        contents = contents.replace("int amd64_winabi_rsave",
+                                    "static int amd64_winabi_rsave")
+        contents = contents.replace("int amd64_winabi_rclob",
+                                    "static int amd64_winabi_rclob")
+    
+    if file == "arm64/targ.c":
+        contents = contents.replace(
+            "int arm64_rsave", "static int arm64_rsave")
+        contents = contents.replace(
+            "int arm64_rclob", "static int arm64_rclob")
+    
+    if file == "rv64/targ.c":
+        contents = contents.replace(
+            "Rv64Op rv64_op", "static Rv64Op rv64_op")
+        contents = contents.replace(
+            "int rv64_rsave", "static int rv64_rsave")
+        contents = contents.replace(
+            "int rv64_rclob", "static int rv64_rclob")
+    
+    if file.endswith("emitmacho.h"):
+        contents = staticize_prototypes(contents)
+    
+    if file.endswith("apple_shared.h"):
+        contents = staticize_prototypes(contents)
+    
+    if file.endswith("emitjit.h"):
+        contents = staticize_prototypes(contents)
+    
+    if file.endswith("all.h"):
+        contents = staticize_prototypes(contents)
+        contents = contents.replace(
+            "static void reinit_global_context(GlobalContext* ctx);\n",
+            "")
+    
+    contents = part2()
+    if (file.endswith("/abi.c") or file.endswith("amd64/sysv.c")
+            or file.endswith("amd64/winabi.c")):
+        contents = abi_renames(ns, contents)
+    
+    if file == "main.c":
+        contents = remove_function(
+            contents, "int", "main")
+        contents = remove_lines_range(
+            contents, "static Target *tlist", "};")
+        contents = remove_function(
+            contents, "void", "reinit_global_context")
+    
+    if file == "arm64/apple_shared.c":
+        contents = contents.replace("uint8_t arm64cond",
+                                    "static uint8_t arm64cond")
+    
+    if file == "util.c":
+        contents = remove_function(
+            contents, "void *", "emalloc")
+        contents = remove_function(
+            contents, "void *", "alloc")
+        contents = remove_function(
+            contents, "void", "freeall")
+        contents = remove_function(
+            contents, "void", "qbe_free")
+        contents = remove_function(
+            contents, "void", "die_")
+    
+    if file == "parse.c":
+        contents = remove_function(
+            contents, "void", "parse")
+        contents = remove_function(
+            contents, "static void", "qbe_parse_parsedatref")
+        contents = remove_function(
+            contents, "static void", "qbe_parse_parsedat")
+        contents = remove_function(
+            contents, "static Ref", "qbe_parse_tmpref")
+        contents = remove_function(
+            contents, "static void", "qbe_parse_parsetyp")
+        contents = remove_function(
+            contents, "static void", "qbe_parse_parsedatstr")
+        contents = remove_function(
+            contents, "static void", "qbe_parse_parsefields")
+        contents = remove_function(
+            contents, "static void", "qbe_parse_expect")
+        contents = remove_function(
+            contents, "static Blk *", "qbe_parse_findblk")
+        contents = remove_function(
+            contents, "static PState", "qbe_parse_parseline")
+        contents = remove_function(
+            contents, "static int", "qbe_parse_parselnk")
+        contents = remove_function(
+            contents, "static int", "qbe_parse_nextnl")
+        contents = remove_function(
+            contents, "static int", "qbe_parse_next")
+        contents = remove_function(
+            contents, "static int", "qbe_parse_peek")
+        contents = remove_function(
+            contents, "static int", "qbe_parse_lex")
+        contents = remove_function(
+            contents, "static int64_t", "qbe_parse_getint")
+        contents = remove_function(
+            contents, "static int", "qbe_parse_parserefl")
+        contents = remove_function(
+            contents, "void", "err_")
+        contents = remove_function(
+            contents, "static int", "qbe_parse_findtyp")
+        contents = remove_function(
+            contents, "static int", "qbe_parse_parsecls")
+        contents = remove_function(
+            contents, "static Ref", "qbe_parse_parseref")
+        contents = remove_function(
+            contents, "static Fn *", "qbe_parse_parsefn")
+        contents = remove_function(
+            contents, "static void", "qbe_parse_lexinit")
+        contents = remove_lines_range(
+            contents, "static struct {", "} tokval;")
+        contents = remove_lines_range(
+            contents, "static char *kwmap", "};")
+        contents = remove_lines_range(contents, "enum Token {", "};")
+        contents = remove_data(contents, "\tNPred =")
+        contents = remove_data(contents, "\tTMask =")
+        contents = remove_data(contents, "\tK =")
+        contents = re.sub(r"enum {[\s]*};", "", contents)
+        contents = replace_noreturn(contents)
+        line = part3(out, file, contents, ops_h_contents)
+    return contents
+
+
 def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
     with open("sqbe.h", "w", newline="\n") as out:
 
@@ -556,214 +721,50 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
 #endif
 """)
 
-        for file in [
-            "all.h",
-            "amd64/all.h",
-            "arm64/all.h",
-            "arm64/apple_shared.h",
-            "arm64/emitjit.h",
-            "arm64/emitmacho.h",
-            "rv64/all.h",
-            "abi.c",
-            "alias.c",
-            "cfg.c",
-            "copy.c",
-            "emit.c",
-            "fold.c",
-            "gcm.c",
-            "gvn.c",
-            "ifopt.c",
-            "live.c",
-            "load.c",
-            "main.c",
-            "mem.c",
-            "parse.c",
-            "rega.c",
-            "simpl.c",
-            "spill.c",
-            "ssa.c",
-            "util.c",
-            "amd64/emit.c",
-            "amd64/isel.c",
-            "amd64/sysv.c",
-            "amd64/targ.c",
-            "amd64/winabi.c",
-            "arm64/abi.c",
-            "arm64/apple_shared.c",
-            "arm64/emit.c",
-            "arm64/emitjit.c",
-            "arm64/emitmacho.c",
-            "arm64/isel.c",
-            "arm64/targ.c",
-            "rv64/abi.c",
-            "rv64/emit.c",
-            "rv64/isel.c",
-            "rv64/targ.c",
-            "../sqbe_impl.c",
-        ]:
-            contents, ns = part1(qbe_root, file)
+        contents = main_body(qbe_root, "all.h")
+        contents = main_body(qbe_root, "amd64/all.h")
+        contents = main_body(qbe_root, "arm64/all.h")
+        contents = main_body(qbe_root, "arm64/apple_shared.h")
+        contents = main_body(qbe_root, "arm64/emitjit.h")
+        contents = main_body(qbe_root, "arm64/emitmacho.h")
+        contents = main_body(qbe_root, "rv64/all.h")
+        contents = main_body(qbe_root, "abi.c")
+        contents = main_body(qbe_root, "alias.c")
+        contents = main_body(qbe_root, "cfg.c")
+        contents = main_body(qbe_root, "copy.c")
+        contents = main_body(qbe_root, "emit.c")
+        contents = main_body(qbe_root, "fold.c")
+        contents = main_body(qbe_root, "gcm.c")
+        contents = main_body(qbe_root, "gvn.c")
+        contents = main_body(qbe_root, "ifopt.c")
+        contents = main_body(qbe_root, "live.c")
+        contents = main_body(qbe_root, "load.c")
+        contents = main_body(qbe_root, "main.c")
+        contents = main_body(qbe_root, "mem.c")
+        contents = main_body(qbe_root, "parse.c")
+        contents = main_body(qbe_root, "rega.c")
+        contents = main_body(qbe_root, "simpl.c")
+        contents = main_body(qbe_root, "spill.c")
+        contents = main_body(qbe_root, "ssa.c")
+        contents = main_body(qbe_root, "util.c")
+        contents = main_body(qbe_root, "amd64/emit.c")
+        contents = main_body(qbe_root, "amd64/isel.c")
+        contents = main_body(qbe_root, "amd64/sysv.c")
+        contents = main_body(qbe_root, "amd64/targ.c")
+        contents = main_body(qbe_root, "amd64/winabi.c")
+        contents = main_body(qbe_root, "arm64/abi.c")
+        contents = main_body(qbe_root, "arm64/apple_shared.c")
+        contents = main_body(qbe_root, "arm64/emit.c")
+        contents = main_body(qbe_root, "arm64/emitjit.c")
+        contents = main_body(qbe_root, "arm64/emitmacho.c")
+        contents = main_body(qbe_root, "arm64/isel.c")
+        contents = main_body(qbe_root, "arm64/targ.c")
+        contents = main_body(qbe_root, "rv64/abi.c")
+        contents = main_body(qbe_root, "rv64/emit.c")
+        contents = main_body(qbe_root, "rv64/isel.c")
+        contents = main_body(qbe_root, "rv64/targ.c")
+        contents = main_body(qbe_root, "../sqbe_impl.c")
 
-            if file == "arm64/all.h" or file.startswith("arm64/"):
-                contents = arm64_reg_rename(contents)
-
-            if file == "amd64/all.h" or file.startswith("amd64/"):
-                contents = amd64_reg_rename(contents)
-
-            if file == "rv64/all.h" or file.startswith("rv64/"):
-                contents = rv64_reg_rename(contents)
-
-            if file.endswith("/emit.c"):
-                contents = emit_renames(ns, contents)
-
-            if file == "emit.c":  # This should be changed upstream.
-                contents = fix_missing_static(contents, "emitlnk")
-
-            if file == "cfg.c":  # This should be changed upstream.
-                contents = fix_missing_static(contents, "multloop")
-
-            if file == "gvn.c":  # This should be changed upstream.
-                contents = fix_missing_static(contents, "cmpeqz")
-
-            if file == "main.c":
-                contents = staticize_main_data(contents)
-
-            if file == "parse.c":
-                contents = staticize_parse_data(contents)
-
-            if file == "amd64/targ.c":
-                contents = contents.replace(
-                    "Amd64Op amd64_op", "static Amd64Op amd64_op")
-
-            if file == "amd64/sysv.c":
-                contents = contents.replace(
-                    "int amd64_sysv_rsave", "static int amd64_sysv_rsave")
-                contents = contents.replace(
-                    "int amd64_sysv_rclob", "static int amd64_sysv_rclob")
-
-            if file == "amd64/winabi.c":
-                contents = contents.replace("int amd64_winabi_rsave",
-                                            "static int amd64_winabi_rsave")
-                contents = contents.replace("int amd64_winabi_rclob",
-                                            "static int amd64_winabi_rclob")
-
-            if file == "arm64/targ.c":
-                contents = contents.replace(
-                    "int arm64_rsave", "static int arm64_rsave")
-                contents = contents.replace(
-                    "int arm64_rclob", "static int arm64_rclob")
-
-            if file == "rv64/targ.c":
-                contents = contents.replace(
-                    "Rv64Op rv64_op", "static Rv64Op rv64_op")
-                contents = contents.replace(
-                    "int rv64_rsave", "static int rv64_rsave")
-                contents = contents.replace(
-                    "int rv64_rclob", "static int rv64_rclob")
-
-            if file.endswith("emitmacho.h"):
-                contents = staticize_prototypes(contents)
-
-            if file.endswith("apple_shared.h"):
-                contents = staticize_prototypes(contents)
-
-            if file.endswith("emitjit.h"):
-                contents = staticize_prototypes(contents)
-
-            if file.endswith("all.h"):
-                contents = staticize_prototypes(contents)
-                contents = contents.replace(
-                    "static void reinit_global_context(GlobalContext* ctx);\n",
-                    "")
-
-            contents = part2()
-            if (file.endswith("/abi.c") or file.endswith("amd64/sysv.c")
-                    or file.endswith("amd64/winabi.c")):
-                contents = abi_renames(ns, contents)
-
-            if file == "main.c":
-                contents = remove_function(
-                    contents, "int", "main")
-                contents = remove_lines_range(
-                    contents, "static Target *tlist", "};")
-                contents = remove_function(
-                    contents, "void", "reinit_global_context")
-
-            if file == "arm64/apple_shared.c":
-                contents = contents.replace("uint8_t arm64cond",
-                                            "static uint8_t arm64cond")
-
-            if file == "util.c":
-                contents = remove_function(
-                    contents, "void *", "emalloc")
-                contents = remove_function(
-                    contents, "void *", "alloc")
-                contents = remove_function(
-                    contents, "void", "freeall")
-                contents = remove_function(
-                    contents, "void", "qbe_free")
-                contents = remove_function(
-                    contents, "void", "die_")
-
-            if file == "parse.c":
-                contents = remove_function(
-                    contents, "void", "parse")
-                contents = remove_function(
-                    contents, "static void", "qbe_parse_parsedatref")
-                contents = remove_function(
-                    contents, "static void", "qbe_parse_parsedat")
-                contents = remove_function(
-                    contents, "static Ref", "qbe_parse_tmpref")
-                contents = remove_function(
-                    contents, "static void", "qbe_parse_parsetyp")
-                contents = remove_function(
-                    contents, "static void", "qbe_parse_parsedatstr")
-                contents = remove_function(
-                    contents, "static void", "qbe_parse_parsefields")
-                contents = remove_function(
-                    contents, "static void", "qbe_parse_expect")
-                contents = remove_function(
-                    contents, "static Blk *", "qbe_parse_findblk")
-                contents = remove_function(
-                    contents, "static PState", "qbe_parse_parseline")
-                contents = remove_function(
-                    contents, "static int", "qbe_parse_parselnk")
-                contents = remove_function(
-                    contents, "static int", "qbe_parse_nextnl")
-                contents = remove_function(
-                    contents, "static int", "qbe_parse_next")
-                contents = remove_function(
-                    contents, "static int", "qbe_parse_peek")
-                contents = remove_function(
-                    contents, "static int", "qbe_parse_lex")
-                contents = remove_function(
-                    contents, "static int64_t", "qbe_parse_getint")
-                contents = remove_function(
-                    contents, "static int", "qbe_parse_parserefl")
-                contents = remove_function(
-                    contents, "void", "err_")
-                contents = remove_function(
-                    contents, "static int", "qbe_parse_findtyp")
-                contents = remove_function(
-                    contents, "static int", "qbe_parse_parsecls")
-                contents = remove_function(
-                    contents, "static Ref", "qbe_parse_parseref")
-                contents = remove_function(
-                    contents, "static Fn *", "qbe_parse_parsefn")
-                contents = remove_function(
-                    contents, "static void", "qbe_parse_lexinit")
-                contents = remove_lines_range(
-                    contents, "static struct {", "} tokval;")
-                contents = remove_lines_range(
-                    contents, "static char *kwmap", "};")
-                contents = remove_lines_range(contents, "enum Token {", "};")
-                contents = remove_data(contents, "\tNPred =")
-                contents = remove_data(contents, "\tTMask =")
-                contents = remove_data(contents, "\tK =")
-                contents = re.sub(r"enum {[\s]*};", "", contents)
-
-            contents = replace_noreturn(contents)
-
-            line = part3(out, file, contents, ops_h_contents)
         out.write(instrs.defns)
 
         out.write("""\
