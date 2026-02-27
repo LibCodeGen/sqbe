@@ -433,7 +433,7 @@ def part1(qbe_root, file):
     return contents, ns
 
 
-def part2():
+def part2(contents):
     # MSVC annoyingly doesn't handle static forward declarations
     # without a size properly and just dies at the point of
     # declaration. We can't easily restructure to get the ops,
@@ -517,7 +517,7 @@ def part3(out, file, contents, ops_h_contents):
     return line
 
 
-def main_body(qbe_root, file):
+def main_body(qbe_root, out, ops_h_contents, file):
     contents, ns = part1(qbe_root, file)
     
     if file == "arm64/all.h" or file.startswith("arm64/"):
@@ -592,7 +592,8 @@ def main_body(qbe_root, file):
             "static void reinit_global_context(GlobalContext* ctx);\n",
             "")
     
-    contents = part2()
+    contents = part2(contents)
+
     if (file.endswith("/abi.c") or file.endswith("amd64/sysv.c")
             or file.endswith("amd64/winabi.c")):
         contents = abi_renames(ns, contents)
@@ -721,49 +722,49 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
 #endif
 """)
 
-        contents = main_body(qbe_root, "all.h")
-        contents = main_body(qbe_root, "amd64/all.h")
-        contents = main_body(qbe_root, "arm64/all.h")
-        contents = main_body(qbe_root, "arm64/apple_shared.h")
-        contents = main_body(qbe_root, "arm64/emitjit.h")
-        contents = main_body(qbe_root, "arm64/emitmacho.h")
-        contents = main_body(qbe_root, "rv64/all.h")
-        contents = main_body(qbe_root, "abi.c")
-        contents = main_body(qbe_root, "alias.c")
-        contents = main_body(qbe_root, "cfg.c")
-        contents = main_body(qbe_root, "copy.c")
-        contents = main_body(qbe_root, "emit.c")
-        contents = main_body(qbe_root, "fold.c")
-        contents = main_body(qbe_root, "gcm.c")
-        contents = main_body(qbe_root, "gvn.c")
-        contents = main_body(qbe_root, "ifopt.c")
-        contents = main_body(qbe_root, "live.c")
-        contents = main_body(qbe_root, "load.c")
-        contents = main_body(qbe_root, "main.c")
-        contents = main_body(qbe_root, "mem.c")
-        contents = main_body(qbe_root, "parse.c")
-        contents = main_body(qbe_root, "rega.c")
-        contents = main_body(qbe_root, "simpl.c")
-        contents = main_body(qbe_root, "spill.c")
-        contents = main_body(qbe_root, "ssa.c")
-        contents = main_body(qbe_root, "util.c")
-        contents = main_body(qbe_root, "amd64/emit.c")
-        contents = main_body(qbe_root, "amd64/isel.c")
-        contents = main_body(qbe_root, "amd64/sysv.c")
-        contents = main_body(qbe_root, "amd64/targ.c")
-        contents = main_body(qbe_root, "amd64/winabi.c")
-        contents = main_body(qbe_root, "arm64/abi.c")
-        contents = main_body(qbe_root, "arm64/apple_shared.c")
-        contents = main_body(qbe_root, "arm64/emit.c")
-        contents = main_body(qbe_root, "arm64/emitjit.c")
-        contents = main_body(qbe_root, "arm64/emitmacho.c")
-        contents = main_body(qbe_root, "arm64/isel.c")
-        contents = main_body(qbe_root, "arm64/targ.c")
-        contents = main_body(qbe_root, "rv64/abi.c")
-        contents = main_body(qbe_root, "rv64/emit.c")
-        contents = main_body(qbe_root, "rv64/isel.c")
-        contents = main_body(qbe_root, "rv64/targ.c")
-        contents = main_body(qbe_root, "../sqbe_impl.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "all.h")
+        contents = main_body(qbe_root, out, ops_h_contents, "amd64/all.h")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/all.h")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/apple_shared.h")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/emitjit.h")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/emitmacho.h")
+        contents = main_body(qbe_root, out, ops_h_contents, "rv64/all.h")
+        contents = main_body(qbe_root, out, ops_h_contents, "abi.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "alias.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "cfg.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "copy.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "emit.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "fold.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "gcm.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "gvn.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "ifopt.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "live.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "load.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "main.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "mem.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "parse.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "rega.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "simpl.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "spill.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "ssa.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "util.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "amd64/emit.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "amd64/isel.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "amd64/sysv.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "amd64/targ.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "amd64/winabi.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/abi.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/apple_shared.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/emit.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/emitjit.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/emitmacho.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/isel.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "arm64/targ.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "rv64/abi.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "rv64/emit.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "rv64/isel.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "rv64/targ.c")
+        contents = main_body(qbe_root, out, ops_h_contents, "../sqbe_impl.c")
 
         out.write(instrs.defns)
 
@@ -939,9 +940,9 @@ def main():
         print("darwin build ok")
     elif sys.platform == "linux":
         # Check we can build with gcc and clang
-        subprocess.check_call(
+        subprocess.check_call((
             ["gcc", "-Wall", "-Wextra", "-Werror",
-             "-pedantic", "-c", "in_c_test.c"])
+             "-pedantic", "-c", "in_c_test.c"]))
         subprocess.check_call([
             "gcc",
             "-O2",
