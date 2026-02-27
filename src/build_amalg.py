@@ -10,51 +10,6 @@ ROOT_DIR = os.path.normpath(os.path.join(
     os.path.abspath(os.path.dirname(__file__)), ".."
     ))
 
-SQBE_C_FILES = [
-    "all.h",
-    "amd64/all.h",
-    "arm64/all.h",
-    "arm64/apple_shared.h",
-    "arm64/emitjit.h",
-    "arm64/emitmacho.h",
-    "rv64/all.h",
-    "abi.c",
-    "alias.c",
-    "cfg.c",
-    "copy.c",
-    "emit.c",
-    "fold.c",
-    "gcm.c",
-    "gvn.c",
-    "ifopt.c",
-    "live.c",
-    "load.c",
-    "main.c",
-    "mem.c",
-    "parse.c",
-    "rega.c",
-    "simpl.c",
-    "spill.c",
-    "ssa.c",
-    "util.c",
-    "amd64/emit.c",
-    "amd64/isel.c",
-    "amd64/sysv.c",
-    "amd64/targ.c",
-    "amd64/winabi.c",
-    "arm64/abi.c",
-    "arm64/apple_shared.c",
-    "arm64/emit.c",
-    "arm64/emitjit.c",
-    "arm64/emitmacho.c",
-    "arm64/isel.c",
-    "arm64/targ.c",
-    "rv64/abi.c",
-    "rv64/emit.c",
-    "rv64/isel.c",
-    "rv64/targ.c",
-    "../sqbe_impl.c",
-]
 
 
 def namespace_static_funcs(ns, file, contents):
@@ -463,6 +418,105 @@ def write_tail(out, qbe_root):
     out.write("*/\n\n")
 
 
+def part1(qbe_root, file):
+    with open(os.path.join(qbe_root, file), "rb") as f:
+        contents = f.read().decode("utf-8")
+    
+    ns = "qbe_" + file.replace("/", "_").replace(".c", "") + "_"
+    
+    if file.endswith(".c"):
+        contents = namespace_static_funcs(ns, file, contents)
+        contents = label_renames(contents)
+        contents = staticize_targets(contents)
+    
+    contents = rename_asserts(contents)
+    return contents, ns
+
+
+def part2():
+    # MSVC annoyingly doesn't handle static forward declarations
+    # without a size properly and just dies at the point of
+    # declaration. We can't easily restructure to get the ops,
+    # regcounts, etc. before the decl, so just hardcode and rely on
+    # the MAKESUREs to make sure they match.
+    contents = contents.replace("extern Amd64Op amd64_op[];",
+                                "static Amd64Op amd64_op[158];")
+    contents = contents.replace("extern int amd64_sysv_rsave[];",
+                                "static int amd64_sysv_rsave[25];")
+    contents = contents.replace("extern int amd64_sysv_rclob[];",
+                                "static int amd64_sysv_rclob[6];")
+    contents = contents.replace(
+        "extern int amd64_winabi_rsave[];",
+        "static int amd64_winabi_rsave[23];",
+    )
+    contents = contents.replace(
+        "extern int amd64_winabi_rclob[];",
+        "static int amd64_winabi_rclob[8];",
+    )
+    contents = contents.replace("extern int arm64_rsave[];",
+                                "static int arm64_rsave[44];")
+    contents = contents.replace("extern int arm64_rclob[];",
+                                "static int arm64_rclob[19];")
+    contents = contents.replace("extern Rv64Op rv64_op[];",
+                                "static Rv64Op rv64_op[158];")
+    contents = contents.replace("extern int rv64_rsave[];",
+                                "static int rv64_rsave[34];")
+    contents = contents.replace("extern int rv64_rclob[];",
+                                "static int rv64_rclob[24];")
+    
+    return contents
+
+
+def part3(out, file, contents, ops_h_contents):
+    out.write("/*** START FILE: %s ***/\n" % file)
+    for line in contents.splitlines():
+        if line.startswith('#include "all.h"'):
+            out.write("/* skipping all.h */\n")
+            continue
+        if line.startswith('#include "emitmacho.h"'):
+            out.write("/* skipping emitmacho.h */\n")
+            continue
+        if line.startswith('#include "apple_shared.h"'):
+            out.write("/* skipping apple_shared.h */\n")
+            continue
+        if line.startswith('#include "emitjit.h"'):
+            out.write("/* skipping emitjit.h */\n")
+            continue
+        if line.startswith('#include "arm64/emitmacho.h"'):
+            out.write("/* skipping arm64/emitmacho.h */\n")
+            continue
+        if line.startswith('#include "arm64/emitjit.h"'):
+            out.write("/* skipping arm64/emitjit.h */\n")
+            continue
+        if line.startswith('#include "../all.h"'):
+            out.write("/* skipping ../all.h */\n")
+            continue
+        if line.startswith('#include "config.h"'):
+            out.write("/* skipping config.h */\n")
+            continue
+        if line.startswith("#include <getopt.h>"):
+            out.write("/* skipping getopt.h */\n")
+            continue
+        if line.startswith("#include <assert.h>"):
+            out.write("/* skipping assert.h */\n")
+            continue
+        if file == "main.c" and line.startswith("#include <dlfcn.h>"):
+            out.write("/* skipping dlfcn.h */\n")
+            continue
+        if (line.strip().startswith('#include "ops.h"')
+           or line.strip().startswith('#include "../ops.h"')):
+            out.write("/* " + 60 * "-" + "including ops.h */\n")
+            out.write(ops_h_contents)
+            out.write("/* " + 60 * "-" + "end of ops.h */\n")
+            continue
+        out.write(line)
+        out.write("\n")
+    out.write("#undef G\n")
+    out.write("/*** END FILE: %s ***/\n" % file)
+    
+    return line
+
+
 def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
     with open("sqbe.h", "w", newline="\n") as out:
 
@@ -502,18 +556,52 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
 #endif
 """)
 
-        for file in SQBE_C_FILES:
-            with open(os.path.join(qbe_root, file), "rb") as f:
-                contents = f.read().decode("utf-8")
-
-            ns = "qbe_" + file.replace("/", "_").replace(".c", "") + "_"
-
-            if file.endswith(".c"):
-                contents = namespace_static_funcs(ns, file, contents)
-                contents = label_renames(contents)
-                contents = staticize_targets(contents)
-
-            contents = rename_asserts(contents)
+        for file in [
+            "all.h",
+            "amd64/all.h",
+            "arm64/all.h",
+            "arm64/apple_shared.h",
+            "arm64/emitjit.h",
+            "arm64/emitmacho.h",
+            "rv64/all.h",
+            "abi.c",
+            "alias.c",
+            "cfg.c",
+            "copy.c",
+            "emit.c",
+            "fold.c",
+            "gcm.c",
+            "gvn.c",
+            "ifopt.c",
+            "live.c",
+            "load.c",
+            "main.c",
+            "mem.c",
+            "parse.c",
+            "rega.c",
+            "simpl.c",
+            "spill.c",
+            "ssa.c",
+            "util.c",
+            "amd64/emit.c",
+            "amd64/isel.c",
+            "amd64/sysv.c",
+            "amd64/targ.c",
+            "amd64/winabi.c",
+            "arm64/abi.c",
+            "arm64/apple_shared.c",
+            "arm64/emit.c",
+            "arm64/emitjit.c",
+            "arm64/emitmacho.c",
+            "arm64/isel.c",
+            "arm64/targ.c",
+            "rv64/abi.c",
+            "rv64/emit.c",
+            "rv64/isel.c",
+            "rv64/targ.c",
+            "../sqbe_impl.c",
+        ]:
+            contents, ns = part1(qbe_root, file)
 
             if file == "arm64/all.h" or file.startswith("arm64/"):
                 contents = arm64_reg_rename(contents)
@@ -587,36 +675,7 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
                     "static void reinit_global_context(GlobalContext* ctx);\n",
                     "")
 
-                # MSVC annoyingly doesn't handle static forward declarations
-                # without a size properly and just dies at the point of
-                # declaration. We can't easily restructure to get the ops,
-                # regcounts, etc. before the decl, so just hardcode and rely on
-                # the MAKESUREs to make sure they match.
-                contents = contents.replace("extern Amd64Op amd64_op[];",
-                                            "static Amd64Op amd64_op[158];")
-                contents = contents.replace("extern int amd64_sysv_rsave[];",
-                                            "static int amd64_sysv_rsave[25];")
-                contents = contents.replace("extern int amd64_sysv_rclob[];",
-                                            "static int amd64_sysv_rclob[6];")
-                contents = contents.replace(
-                    "extern int amd64_winabi_rsave[];",
-                    "static int amd64_winabi_rsave[23];",
-                )
-                contents = contents.replace(
-                    "extern int amd64_winabi_rclob[];",
-                    "static int amd64_winabi_rclob[8];",
-                )
-                contents = contents.replace("extern int arm64_rsave[];",
-                                            "static int arm64_rsave[44];")
-                contents = contents.replace("extern int arm64_rclob[];",
-                                            "static int arm64_rclob[19];")
-                contents = contents.replace("extern Rv64Op rv64_op[];",
-                                            "static Rv64Op rv64_op[158];")
-                contents = contents.replace("extern int rv64_rsave[];",
-                                            "static int rv64_rsave[34];")
-                contents = contents.replace("extern int rv64_rclob[];",
-                                            "static int rv64_rclob[24];")
-
+            contents = part2()
             if (file.endswith("/abi.c") or file.endswith("amd64/sysv.c")
                     or file.endswith("amd64/winabi.c")):
                 contents = abi_renames(ns, contents)
@@ -704,52 +763,7 @@ def write_final_header(qbe_root, ops_h_contents, h_contents, instrs):
 
             contents = replace_noreturn(contents)
 
-            out.write("/*** START FILE: %s ***/\n" % file)
-            for line in contents.splitlines():
-                if line.startswith('#include "all.h"'):
-                    out.write("/* skipping all.h */\n")
-                    continue
-                if line.startswith('#include "emitmacho.h"'):
-                    out.write("/* skipping emitmacho.h */\n")
-                    continue
-                if line.startswith('#include "apple_shared.h"'):
-                    out.write("/* skipping apple_shared.h */\n")
-                    continue
-                if line.startswith('#include "emitjit.h"'):
-                    out.write("/* skipping emitjit.h */\n")
-                    continue
-                if line.startswith('#include "arm64/emitmacho.h"'):
-                    out.write("/* skipping arm64/emitmacho.h */\n")
-                    continue
-                if line.startswith('#include "arm64/emitjit.h"'):
-                    out.write("/* skipping arm64/emitjit.h */\n")
-                    continue
-                if line.startswith('#include "../all.h"'):
-                    out.write("/* skipping ../all.h */\n")
-                    continue
-                if line.startswith('#include "config.h"'):
-                    out.write("/* skipping config.h */\n")
-                    continue
-                if line.startswith("#include <getopt.h>"):
-                    out.write("/* skipping getopt.h */\n")
-                    continue
-                if line.startswith("#include <assert.h>"):
-                    out.write("/* skipping assert.h */\n")
-                    continue
-                if file == "main.c" and line.startswith("#include <dlfcn.h>"):
-                    out.write("/* skipping dlfcn.h */\n")
-                    continue
-                if (line.strip().startswith('#include "ops.h"')
-                   or line.strip().startswith('#include "../ops.h"')):
-                    out.write("/* " + 60 * "-" + "including ops.h */\n")
-                    out.write(ops_h_contents)
-                    out.write("/* " + 60 * "-" + "end of ops.h */\n")
-                    continue
-                out.write(line)
-                out.write("\n")
-            out.write("#undef G\n")
-            out.write("/*** END FILE: %s ***/\n" % file)
-
+            line = part3(out, file, contents, ops_h_contents)
         out.write(instrs.defns)
 
         out.write("""\
